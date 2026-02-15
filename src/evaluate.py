@@ -1,3 +1,4 @@
+import time
 from collections import Counter
 from .model import extract_features
 from src.logger import Logger
@@ -38,8 +39,10 @@ def compute_metrics(index, query_loader, model, device, top_k=[1, 5, 10]):
     Evaluates the system using Recall@K and Mean Average Precision (mAP).
     Separates 'Closed-Set' (known places) from 'Open-Set' (unknown places).
     """
+    extraction_start = time.time()
     logger.info("Extracting query features...")
     query_data = extract_features(model, query_loader, device)
+    extraction_time = time.time() - extraction_start
 
     query_vectors = query_data["embeddings"]
     query_classes = query_data["classes"]
@@ -54,6 +57,7 @@ def compute_metrics(index, query_loader, model, device, top_k=[1, 5, 10]):
     unknown_count = 0
     correct_unknowns = 0
 
+    search_start = time.time()
     logger.info("Running similarity search...")
 
     for i in range(len(query_classes)):
@@ -98,10 +102,11 @@ def compute_metrics(index, query_loader, model, device, top_k=[1, 5, 10]):
         total_relevant = gallery_class_counts[gt_class]
         ap = calculate_ap(retrieved_classes, gt_class, total_relevant)
         aps.append(ap)
+    search_time = time.time() - search_start
 
-    # Evaluation Report
+    # Evaluation
     logger.info("=" * 40)
-    logger.info("       EVALUATION REPORT       ")
+    logger.info("       EVALUATION       ")
     logger.info("=" * 40)
 
     if known_count > 0:
@@ -133,4 +138,6 @@ def compute_metrics(index, query_loader, model, device, top_k=[1, 5, 10]):
                 f"→ got '{f['pred_class']}' (score: {f['score']})"
             )
 
+    logger.info(f"Extraction: {extraction_time:.2f}s | Search: {search_time:.2f}s")
+    logger.info(f"Throughput: {len(query_classes) / search_time:.1f} queries/sec")
     logger.info("=" * 40)

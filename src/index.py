@@ -1,5 +1,6 @@
 import torch
 import numpy as np
+import faiss
 from src.logger import Logger
 
 logger = Logger(__name__)
@@ -14,16 +15,20 @@ class VectorIndex:
                 - 'classes': List of class names
                 - 'ids': List of image IDs
         """
-        self.gallery_vectors = gallery_data["embeddings"]
         self.gallery_classes = gallery_data["classes"]
         self.gallery_ids = gallery_data["ids"]
         self.gallery_paths = gallery_data["paths"]
 
-        # Ensure vectors are on CPU for numpy operations
-        if torch.is_tensor(self.gallery_vectors):
-            self.gallery_vectors = self.gallery_vectors.cpu().numpy()
+        vectors = gallery_data["embeddings"]
+        if torch.is_tensor(vectors):
+            vectors = vectors.cpu().numpy()
 
-        logger.info(f"Index built with {len(self.gallery_classes)} gallery images.")
+        # Build FAISS index (Inner Product = Cosine Similarity for normalized vectors)
+        dim = vectors.shape[1]
+        self.index = faiss.IndexFlatIP(dim)
+        self.index.add(vectors.astype(np.float32))
+
+        logger.info(f"FAISS index built with {len(self.gallery_classes)} gallery images.")
 
     def search(self, query_vector: torch.Tensor, top_k: int = 1, threshold: float = 0.0):
         """
@@ -37,19 +42,18 @@ class VectorIndex:
         Returns:
             List of dicts: [{'class': str, 'score': float, 'id': str}, ...]
         """
-        # Ensure query is numpy
         if torch.is_tensor(query_vector):
             query = query_vector.cpu().numpy().flatten()
         else:
             query = query_vector.flatten()
 
-        scores = self.gallery_vectors @ query  # Cosine Similarity
-        sorted_indices = np.argsort(-scores)  # Negative for descending
+        query = query.astype(np.float32).reshape(1, -1)
+        scores, indices = self.index.search(query, min(top_k, self.index.ntotal))
 
         results = []
-        for i in range(min(top_k, len(sorted_indices))):
-            idx = sorted_indices[i]
-            score = float(scores[idx])
+        for i in range(len(indices[0])):
+            idx = indices[0][i]
+            score = float(scores[0][i])
 
             # Unknown Handling
             if score < threshold:
