@@ -43,7 +43,7 @@ def main():
     logger.info("Initializing Gallery Dataset...")
     gallery_dataset = PlaceDataset(MANIFEST_PATH, DATA_DIR, split="gallery")
     gallery_loader = DataLoader(
-        gallery_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn
+        gallery_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, collate_fn=collate_fn
     )
 
     gallery_cache_path = os.path.join(CACHE_DIR, "gallery_embeddings.pt")
@@ -63,7 +63,7 @@ def main():
         logger.info("Initializing Query Dataset...")
         query_dataset = PlaceDataset(MANIFEST_PATH, DATA_DIR, split="query")
         query_loader = DataLoader(
-            query_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate_fn
+            query_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=4, collate_fn=collate_fn
         )
         compute_metrics(index, query_loader, model, device)
 
