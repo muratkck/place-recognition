@@ -22,6 +22,23 @@ mapping_line,class_name,class_dir,landmark_id,split,image_id,relpath,url
 44797,Grand Canyon,Grand_Canyon__lid_44795,44795,query,def456,landmarks/Grand_Canyon/query/def456.jpg,https://...
 ```
 
+Directory layout:
+
+```
+data/
+├── manifest.csv                          # gallery/query split definitions
+└── landmarks/
+    ├── Eiffel_Tower__lid_47378/
+    │   ├── gallery/                      # reference images
+    │   │   └── *.jpg
+    │   └── query/                        # test images
+    │       └── *.jpg
+    ├── Grand_Canyon__lid_44795/
+    │   ├── gallery/
+    │   └── query/
+    └── ...                               # one folder per landmark
+```
+
 ## Usage
 
 ### Build the Gallery Index
