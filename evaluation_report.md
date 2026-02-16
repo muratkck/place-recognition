@@ -1,50 +1,4 @@
-# 5. Evaluation & Reporting
-
-## Metrics Implementation
-
-I implemented two standard retrieval metrics in `evaluate.py`:
-
-**Recall@K** — For each query, I check whether the ground-truth class appears anywhere in the top-K retrieved results. If it does, the query counts as a success. I compute this for K = 1, 5, and 10.
-
-**Mean Average Precision (mAP)** — I compute Average Precision for each query using the formula:
-
-```
-AP = (1 / R) × Σ (Precision@k × rel_k)
-```
-
-where R is the total number of relevant images for that class in the gallery. This is important because some queries have **multiple valid matches** in the gallery (e.g., Grand Canyon has 20 gallery images, Eiffel Tower has 17). By dividing by R instead of the number of retrieved hits, the AP score correctly penalizes the system when it fails to retrieve all relevant images.
-
-I pre-compute R for each class using `Counter(index.gallery_classes)` so that the mAP calculation reflects the true number of gallery images per class.
-
----
-
-## Handling Multi-Positive Queries
-
-The `calculate_ap` function takes a `total_relevant_in_gallery` parameter that represents the total number of images of the query's class in the gallery. This ensures:
-
-- If a class has 20 images in the gallery but only 5 appear in the top results, the AP is divided by 20 (not 5), penalizing missing results.
-- If all relevant images are retrieved at the top ranks, AP approaches 1.0.
-
----
-
-## Unit Tests
-
-I wrote three unit tests in `test_metrics.py` to validate the metric calculations:
-
-| Test | Scenario | Expected AP |
-|---|---|---|
-| `test_ap_perfect_single` | Single relevant item at rank 1 | 1.0 |
-| **`test_ap_multi_positive`** | **Two relevant items at ranks 1 and 3 (R=2)** | **(1/1 + 2/3) / 2 = 0.833** |
-| `test_ap_no_relevant` | No relevant items in gallery (R=0) | 0.0 |
-
-The **multi-positive test** (`test_ap_multi_positive`) specifically validates that the AP calculation handles queries with multiple valid matches correctly, as required by the project specification.
-
-To run the tests:
-```bash
-uv run pytest tests/test_metrics.py -v
-```
-
----
+# Evaluation & Reporting
 
 ## Evaluation Results
 
@@ -62,6 +16,16 @@ Unknown Queries (Open Set): 9
 ```
 
 The system correctly identified all 9 open-set queries (landmarks not in the gallery) as UNKNOWN, achieving 100% rejection accuracy.
+
+---
+
+## Performance Benchmark
+| Metric | Value |
+|---|---|
+| Feature Extraction (29 queries) | 7.64s |
+| FAISS Search (29 queries) | <0.01s |
+| Search Throughput | 5,954 queries/sec |
+| Device | CPU |
 
 ---
 
@@ -91,6 +55,6 @@ All four failures were classified as UNKNOWN rather than misidentified as a diff
 
 The failures shows that all 4 errors were caused by the pre-trained ResNet101 model being sensitive to visual changes like lighting, seasons, size, and viewpoint. The most effective improvements would be:
 
-1. **Using a stronger feature extractor** — Our system uses a pretrained model that was not trained specifically for landmark recognition. Replacing it with a backbone that produces features more robust to lighting, weather, and viewpoint changes would directly fix the main cause of our failures. Fine-tuning the backbone on landmark-specific data would further improve accuracy, since the model would learn which visual details matter most for this task.
+1. **Using a stronger feature extractor** — The system uses a pretrained model that was not trained specifically for landmark recognition. Replacing it with a backbone that produces features more robust to lighting, weather, and viewpoint changes would directly fix the main cause of our failures. Fine-tuning the backbone on landmark-specific data would further improve accuracy, since the model would learn which visual details matter most for this task.
 2. **Multi-scale feature extraction** — In the scale failure case (query `3b3e774767a97fe5`, where the Eiffel Tower occupies a small portion of the frame), the landmark takes up only a small part of the image. Since our model averages features over the entire image, the landmark signal gets lost. Extracting features at multiple crop levels would help the system focus on the landmark area regardless of its size in the frame.
 3. **Gallery augmentation** — Adding gallery images with different conditions (night, snow, various angles) would close the gap between gallery and query images, making the system more robust without changing the model.
